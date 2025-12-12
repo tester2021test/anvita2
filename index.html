@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Anvita's Magic Playland - Interactive Learning</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- Chosen Palette: Candy & Warm Neutrals (Indian Festival Theme) -->
+    <!-- Application Structure Plan: 
+         1. Home Dashboard: Central hub with 'Appu' the mascot.
+         2. Game Views: Dedicated full-screen interactive areas.
+         3. Parents Corner: Analytics with Chart.js.
+         4. Navigation: Simple bars.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        /* Typography & Base */
+        body {
+            font-family: 'Comic Neue', cursive;
+            background-color: #FFF7ED; /* Orange-50 */
+            overflow-x: hidden;
+            touch-action: manipulation; /* Improves touch response */
+            user-select: none; /* Prevents text selection during play */
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(2deg); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+        .shake-hover:hover { animation: shake 0.5s ease-in-out infinite; }
+        .shake-active { animation: shake 0.5s ease-in-out infinite; }
+
+        /* Chart Container Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container { height: 350px; }
+        }
+
+        /* Custom UI Elements */
+        .btn-game {
+            transition: all 0.2s;
+            border-bottom-width: 6px;
+        }
+        .btn-game:active {
+            transform: translateY(4px);
+            border-bottom-width: 0px;
+        }
+
+        /* Confetti Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Balloon Styles */
+        .balloon {
+            position: absolute;
+            bottom: -150px;
+            cursor: pointer;
+            z-index: 30; /* Ensure it's above background but below modal/confetti */
+            touch-action: none;
+        }
+        .balloon:active { transform: scale(0.95); }
+        
+        .balloon-body {
+            width: 90px;
+            height: 110px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset -10px -10px 0 rgba(0,0,0,0.1);
+            position: relative;
+        }
+        /* Triangle tie at bottom of balloon */
+        .balloon-body::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid currentColor; /* Takes text color of parent */
+            color: inherit; 
+        }
+
+        .balloon-string {
+            width: 2px;
+            height: 80px;
+            background: rgba(0,0,0,0.3);
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Confetti Layer -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- App Container -->
+    <div id="app" class="h-screen flex flex-col max-w-4xl mx-auto bg-white shadow-2xl relative overflow-hidden">
+        
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-pink-400 to-purple-500 p-3 md:p-4 text-white shadow-md z-20 flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="text-3xl md:text-4xl animate-bounce">🐘</div>
+                <div>
+                    <h1 class="text-lg md:text-2xl font-bold leading-tight">Anvita's Playland</h1>
+                    <p class="text-xs md:text-sm text-pink-100 opacity-90 hidden md:block">Nursery Learning Adventure</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.router('parents')" class="bg-white/20 hover:bg-white/30 p-2 rounded-xl text-xs font-bold transition">
+                    👨‍👩‍👧 Parents
+                </button>
+                <button onclick="window.router('home')" class="bg-white text-purple-600 p-2 rounded-xl font-bold shadow-sm hover:scale-105 transition">
+                    🏠 Home
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="flex-grow relative overflow-hidden flex flex-col">
+            <!-- Dynamic Content Injected Here -->
+        </main>
+
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+        // --- Game Data ---
+        const GAME_DATA = {
+            alphabet: [
+                { id: 'A', word: 'Apple', emoji: '🍎', color: 'bg-red-400', text: 'text-red-400' },
+                { id: 'B', word: 'Ball', emoji: '⚽', color: 'bg-blue-400', text: 'text-blue-400' },
+                { id: 'M', word: 'Mango', emoji: '🥭', color: 'bg-yellow-400', text: 'text-yellow-400' },
+                { id: 'E', word: 'Elephant', emoji: '🐘', color: 'bg-gray-400', text: 'text-gray-400' },
+                { id: 'T', word: 'Tiger', emoji: '🐯', color: 'bg-orange-400', text: 'text-orange-400' },
+                { id: 'P', word: 'Parrot', emoji: '🦜', color: 'bg-green-400', text: 'text-green-400' },
+                { id: 'L', word: 'Lotus', emoji: '🪷', color: 'bg-pink-400', text: 'text-pink-400' }
+            ],
+            animals: [
+                { name: 'Lion', sound: 'ROAR', emoji: '🦁', color: 'bg-yellow-200' },
+                { name: 'Crow', sound: 'CAW CAW', emoji: '🐦‍⬛', color: 'bg-gray-200' },
+                { name: 'Cow', sound: 'MOO', emoji: '🐄', color: 'bg-white' },
+                { name: 'Peacock', sound: 'SCREAM', emoji: '🦚', color: 'bg-blue-200' },
+                { name: 'Monkey', sound: 'CHATTER', emoji: '🐒', color: 'bg-orange-200' }
+            ]
+        };
+
+        // --- State Management ---
+        const state = {
+            currentScreen: 'home',
+            progress: {
+                phonics: 30,
+                math: 20,
+                nature: 40,
+                logic: 10
+            },
+            activeChart: null // Track chart instance to destroy it properly
+        };
+
+        // --- Core Router ---
+        window.router = function(screenName) {
+            state.currentScreen = screenName;
+            const main = document.getElementById('main-content');
+            
+            // 1. Cleanup active intervals
+            if (window.gameInterval) {
+                clearInterval(window.gameInterval);
+                window.gameInterval = null;
+            }
+            
+            // 2. Cleanup Chart if exists
+            if (state.activeChart) {
+                state.activeChart.destroy();
+                state.activeChart = null;
+            }
+
+            // 3. Clear container explicitly (helps with garbage collection)
+            main.innerHTML = '';
+
+            // 4. Render Views
+            switch(screenName) {
+                case 'home':
+                    renderHome(main);
+                    break;
+                case 'parents':
+                    renderParentsCorner(main);
+                    break;
+                case 'game-balloon':
+                    renderBalloonGame(main);
+                    break;
+                case 'game-laddoo':
+                    renderLaddooGame(main);
+                    break;
+                case 'game-jungle':
+                    renderJungleGame(main);
+                    break;
+                default:
+                    renderHome(main);
+            }
+        };
+
+        // --- View 1: Home Dashboard ---
+        function renderHome(container) {
+            container.innerHTML = `
+                <div class="p-6 h-full flex flex-col justify-center items-center bg-yellow-50 overflow-y-auto w-full">
+                    
+                    <!-- Mascot Message -->
+                    <div class="flex flex-col items-center mb-8 animate-float">
+                        <div class="text-8xl filter drop-shadow-xl select-none">🐘</div>
+                        <div class="bg-white border-2 border-orange-300 px-6 py-3 rounded-2xl shadow-lg mt-2 relative">
+                            <p class="font-bold text-gray-700 text-lg">Namaste Anvita! Let's play!</p>
+                            <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-t-2 border-l-2 border-orange-300 transform rotate-45"></div>
+                        </div>
+                    </div>
+
+                    <!-- Game Grid -->
+                    <div class="grid grid-cols-2 gap-4 w-full max-w-md">
+                        <button onclick="window.router('game-balloon')" class="btn-game bg-red-100 hover:bg-red-200 border-red-300 border-b-4 rounded-3xl p-4 md:p-6 flex flex-col items-center shadow-lg group">
+                            <span class="text-4xl md:text-5xl mb-2 group-hover:scale-110 transition">🎈</span>
+                            <span class="font-bold text-red-800 text-sm md:text-base">Balloon ABCs</span>
+                        </button>
+
+                        <button onclick="window.router('game-laddoo')" class="btn-game bg-orange-100 hover:bg-orange-200 border-orange-300 border-b-4 rounded-3xl p-4 md:p-6 flex flex-col items-center shadow-lg group">
+                            <span class="text-4xl md:text-5xl mb-2 group-hover:scale-110 transition">🥣</span>
+                            <span class="font-bold text-orange-800 text-sm md:text-base">Count Laddoos</span>
+                        </button>
+
+                        <button onclick="window.router('game-jungle')" class="btn-game bg-green-100 hover:bg-green-200 border-green-300 border-b-4 rounded-3xl p-4 md:p-6 flex flex-col items-center shadow-lg group col-span-2">
+                            <span class="text-4xl md:text-5xl mb-2 group-hover:scale-110 transition">🦁</span>
+                            <span class="font-bold text-green-800 text-sm md:text-base">Jungle Peek</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- View 2: Parents Corner ---
+        function renderParentsCorner(container) {
+            container.innerHTML = `
+                <div class="p-6 h-full bg-white overflow-y-auto w-full">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-purple-700">Anvita's Learning Report</h2>
+                        <p class="text-gray-500 text-sm">Based on Indian Nursery Syllabus goals.</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6 pb-20">
+                        <!-- Chart Container -->
+                        <div class="bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                            <h3 class="font-bold text-gray-700 mb-2 text-center">Skill Development</h3>
+                            <div class="chart-container">
+                                <canvas id="progressChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Syllabus Info -->
+                        <div class="space-y-4">
+                            <div class="bg-red-50 p-4 rounded-xl border-l-4 border-red-400">
+                                <h4 class="font-bold text-red-700">Phonics (A-Z)</h4>
+                                <p class="text-sm text-gray-600">Focus on recognition. Game: Balloon Pop.</p>
+                                <div class="w-full bg-red-200 rounded-full h-2 mt-2"><div class="bg-red-500 h-2 rounded-full" style="width: ${state.progress.phonics}%"></div></div>
+                            </div>
+                            <div class="bg-orange-50 p-4 rounded-xl border-l-4 border-orange-400">
+                                <h4 class="font-bold text-orange-700">Numeracy (1-10)</h4>
+                                <p class="text-sm text-gray-600">Counting objects. Game: Laddoo Box.</p>
+                                <div class="w-full bg-orange-200 rounded-full h-2 mt-2"><div class="bg-orange-500 h-2 rounded-full" style="width: ${state.progress.math}%"></div></div>
+                            </div>
+                             <div class="bg-green-50 p-4 rounded-xl border-l-4 border-green-400">
+                                <h4 class="font-bold text-green-700">Nature & Animals</h4>
+                                <p class="text-sm text-gray-600">Animal sounds & recognition. Game: Jungle Peek.</p>
+                                <div class="w-full bg-green-200 rounded-full h-2 mt-2"><div class="bg-green-500 h-2 rounded-full" style="width: ${state.progress.nature}%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            state.activeChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Phonics', 'Math', 'Nature', 'Logic'],
+                    datasets: [{
+                        label: 'Progress',
+                        data: [state.progress.phonics, state.progress.math, state.progress.nature, state.progress.logic],
+                        backgroundColor: 'rgba(236, 72, 153, 0.2)',
+                        borderColor: 'rgba(236, 72, 153, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(236, 72, 153, 1)'
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    scales: { r: { beginAtZero: true, max: 100, ticks: { display: false } } }
+                }
+            });
+        }
+
+        // --- View 3: Balloon Pop Game (Phonics) - FIXED ---
+        function renderBalloonGame(container) {
+            const target = GAME_DATA.alphabet[Math.floor(Math.random() * GAME_DATA.alphabet.length)];
+            
+            container.innerHTML = `
+                <div class="h-full bg-sky-200 relative overflow-hidden flex flex-col w-full">
+                    <div class="bg-white/80 backdrop-blur p-4 shadow-sm z-20 flex justify-between items-center shrink-0">
+                        <span class="text-xl md:text-2xl font-bold text-sky-700">Find: <span class="text-3xl md:text-4xl text-red-500 font-display mx-2">${target.id}</span></span>
+                        <div class="bg-sky-100 px-3 py-1 rounded-full text-sky-700 font-bold text-sm border border-sky-300 shadow-sm">${target.word}</div>
+                    </div>
+                    
+                    <!-- Game Area -->
+                    <div id="balloon-container" class="flex-grow relative overflow-hidden w-full touch-none">
+                        <!-- Balloons injected by JS -->
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-40">
+                        <p class="bg-white/90 inline-block px-6 py-2 rounded-full shadow-lg text-lg font-bold text-gray-700">Pop the ${target.word}!</p>
+                    </div>
+                </div>
+            `;
+
+            const balloonContainer = document.getElementById('balloon-container');
+
+            function spawnBalloon() {
+                if (state.currentScreen !== 'game-balloon' || !document.getElementById('balloon-container')) return;
+                
+                const isTarget = Math.random() > 0.6; // 40% chance of target
+                const data = isTarget ? target : GAME_DATA.alphabet[Math.floor(Math.random() * GAME_DATA.alphabet.length)];
+                
+                const el = document.createElement('div');
+                el.className = 'balloon';
+                el.style.left = `${Math.random() * 70 + 10}%`; // Keep within 10-80% to avoid edges
+                el.style.animationDuration = `${Math.random() * 2 + 5}s`; 
+                
+                // Inherit text color for the triangle tie using Tailwind classes
+                el.innerHTML = `
+                    <div class="balloon-body ${data.color} ${data.text} border-b-4 border-black/10 transform transition active:scale-90">
+                        <span class="text-4xl font-bold text-white drop-shadow-md select-none pointer-events-none">${data.id}</span>
+                    </div>
+                    <div class="balloon-string pointer-events-none"></div>
+                `;
+
+                // Logic to handle "Pop"
+                const handlePop = (e) => {
+                    if (e) e.stopPropagation();
+                    if (e && e.cancelable) e.preventDefault();
+                    
+                    window.fireConfetti(el.getBoundingClientRect().left + 40, el.getBoundingClientRect().top + 50);
+                    
+                    if (data.id === target.id) {
+                        playFeedback('Great Job!', 'success');
+                        el.remove();
+                        state.progress.phonics = Math.min(100, state.progress.phonics + 5);
+                        setTimeout(() => window.router('game-balloon'), 1500); 
+                    } else {
+                        // Shake effect for wrong answer
+                        el.classList.add('shake-active');
+                        setTimeout(() => el.remove(), 300); // Remove wrong balloon
+                    }
+                };
+
+                // Add both touch and click listeners for robustness
+                el.addEventListener('pointerdown', handlePop);
+                el.addEventListener('click', handlePop);
+
+                // Float Animation
+                let pos = -150;
+                const speed = Math.random() * 1.5 + 1.5; // Speed 1.5 to 3
+                
+                function float() {
+                    // Stop if screen changed or element removed
+                    if (state.currentScreen !== 'game-balloon' || !el.isConnected) return;
+                    
+                    pos += speed;
+                    el.style.bottom = `${pos}px`;
+                    
+                    if (pos > window.innerHeight) {
+                        el.remove();
+                    } else {
+                        requestAnimationFrame(float);
+                    }
+                }
+                requestAnimationFrame(float);
+
+                balloonContainer.appendChild(el);
+            }
+
+            // Spawn Interval
+            window.gameInterval = setInterval(spawnBalloon, 1000);
+            spawnBalloon(); // Spawn one immediately
+        }
+
+        // --- View 4: Laddoo Counting (Math) ---
+        function renderLaddooGame(container) {
+            const count = Math.floor(Math.random() * 5) + 3; // 3 to 7
+            const options = [count, count-1, count+1].sort(() => Math.random() - 0.5);
+
+            container.innerHTML = `
+                <div class="h-full bg-orange-50 flex flex-col items-center justify-between py-6 w-full">
+                    <div class="text-center shrink-0">
+                        <h2 class="text-3xl font-bold text-orange-700">Laddoo Shop</h2>
+                        <p class="text-orange-600">Count the sweets for Appu!</p>
+                    </div>
+
+                    <!-- Plate Area -->
+                    <div class="relative w-72 h-72 bg-gradient-to-br from-gray-100 to-gray-300 rounded-full border-8 border-gray-200 shadow-2xl flex flex-wrap justify-center items-center content-center gap-2 p-8 shrink-0">
+                        ${Array(count).fill(0).map((_, i) => `
+                            <div class="w-12 h-12 bg-yellow-400 rounded-full shadow-md border-b-4 border-yellow-600 flex items-center justify-center animate-pop" style="animation-delay: ${i*0.1}s">
+                                <span class="text-[8px] opacity-30">🟠</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Gift Box -->
+                    <div id="gift-box" class="w-32 h-32 bg-red-500 rounded-xl border-4 border-yellow-300 flex items-center justify-center shadow-xl opacity-0 transition-opacity duration-500 shrink-0">
+                        <span class="text-4xl">🎁</span>
+                    </div>
+
+                    <!-- Number Pad -->
+                    <div class="w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] p-6 z-10 shrink-0">
+                        <div class="flex justify-center gap-4 md:gap-6">
+                            ${options.map(num => `
+                                <button onclick="window.handleLaddooChoice(${num}, ${count}, this)" class="w-20 h-20 md:w-24 md:h-24 bg-orange-400 hover:bg-orange-500 text-white text-4xl md:text-5xl font-bold rounded-2xl shadow-lg border-b-8 border-orange-700 active:border-b-0 active:translate-y-2 transition-all">
+                                    ${num}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Global handler for Laddoo
+        window.handleLaddooChoice = function(selected, correct, btn) {
+            if (selected === correct) {
+                window.fireConfetti(window.innerWidth/2, window.innerHeight/2);
+                state.progress.math = Math.min(100, state.progress.math + 5);
+                
+                const box = document.getElementById('gift-box');
+                if(box) {
+                    box.classList.remove('opacity-0');
+                    box.classList.add('animate-pop');
+                }
+
+                playFeedback(`Yummy! ${correct} Laddoos!`, 'success');
+                setTimeout(() => window.router('game-laddoo'), 2000);
+            } else {
+                btn.classList.add('bg-gray-400', 'border-gray-500');
+                btn.classList.remove('bg-orange-400', 'border-orange-700');
+                btn.disabled = true;
+                playFeedback('Try Again', 'error');
+            }
+        };
+
+        // --- View 6: Jungle Peek-a-Boo ---
+        function renderJungleGame(container) {
+            const animal = GAME_DATA.animals[Math.floor(Math.random() * GAME_DATA.animals.length)];
+
+            container.innerHTML = `
+                <div class="h-full bg-green-100 flex flex-col items-center justify-center p-6 text-center w-full">
+                    <h2 class="text-2xl font-bold text-green-800 mb-8">Who is hiding?</h2>
+                    
+                    <div class="relative w-64 h-64 flex items-center justify-center">
+                        <!-- The Animal (Hidden initially) -->
+                        <div id="animal-reveal" class="absolute inset-0 flex flex-col items-center justify-center opacity-0 transform scale-50 transition-all duration-500">
+                            <span class="text-8xl">${animal.emoji}</span>
+                            <span class="text-2xl font-bold text-green-900 mt-2">${animal.name}</span>
+                        </div>
+
+                        <!-- The Bush (Cover) -->
+                        <div id="bush" onclick="window.revealAnimal()" class="absolute inset-0 cursor-pointer z-10 shake-hover flex items-center justify-center group select-none">
+                            <div class="w-full h-full bg-green-500 rounded-full border-b-8 border-green-700 shadow-xl relative overflow-hidden flex items-center justify-center">
+                                <div class="absolute w-10 h-10 bg-green-400 rounded-full top-4 left-10 opacity-50"></div>
+                                <div class="absolute w-16 h-16 bg-green-600 rounded-full bottom-4 right-10 opacity-50"></div>
+                                <span class="text-white font-bold text-xl animate-pulse">Tap Me!</span>
+                            </div>
+                             <!-- Sound Hint Bubble -->
+                            <div class="absolute -top-12 right-0 bg-white p-3 rounded-xl border-2 border-green-500 shadow-md animate-bounce">
+                                <span class="font-bold text-gray-700">"${animal.sound}"</span>
+                                <div class="absolute -bottom-2 left-4 w-3 h-3 bg-white border-b-2 border-r-2 border-green-500 transform rotate-45"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Global handler
+            window.revealAnimal = function() {
+                const bush = document.getElementById('bush');
+                const reveal = document.getElementById('animal-reveal');
+                if(!bush || !reveal) return;
+                
+                bush.style.transform = 'scale(1.2)';
+                bush.style.opacity = '0';
+                bush.style.pointerEvents = 'none';
+
+                setTimeout(() => {
+                    reveal.classList.remove('opacity-0', 'scale-50');
+                    reveal.classList.add('scale-110');
+                    window.fireConfetti(window.innerWidth/2, window.innerHeight/2);
+                    state.progress.nature = Math.min(100, state.progress.nature + 5);
+                    
+                    setTimeout(() => window.router('game-jungle'), 2500);
+                }, 200);
+            };
+        }
+
+        // --- Shared Utilities ---
+
+        window.playFeedback = function(text, type) {
+            const el = document.createElement('div');
+            el.className = `fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-8 py-6 rounded-3xl shadow-2xl border-4 ${type === 'success' ? 'border-green-400 text-green-600' : 'border-red-400 text-red-500'} z-[60] animate-pop flex flex-col items-center pointer-events-none`;
+            el.innerHTML = `
+                <span class="text-6xl mb-2">${type === 'success' ? '🌟' : '🤔'}</span>
+                <span class="text-2xl font-black font-display whitespace-nowrap">${text}</span>
+            `;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1500);
+        }
+
+        // --- Particle System (Confetti) ---
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        window.fireConfetti = function(x, y) {
+            const colors = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#F472B6'];
+            for(let i=0; i<30; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 1) * 10 - 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: Math.random() * 8 + 4,
+                    life: 1.0
+                });
+            }
+        }
+
+        function updateParticles() {
+            if (particles.length > 0) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach((p, index) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.5; // Gravity
+                    p.life -= 0.02;
+                    p.size *= 0.98; 
+
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.life;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                    
+                    if(p.life <= 0) particles.splice(index, 1);
+                });
+            }
+            requestAnimationFrame(updateParticles);
+        }
+        updateParticles();
+
+        // --- Init ---
+        window.router('home');
+
+    </script>
+</body>
+</html>
